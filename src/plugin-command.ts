@@ -6,7 +6,7 @@ import {
   type BuildRunnerCommandInput,
 } from '@pokujs/dom';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileVueSfcModuleSync } from './vue-sfc-loader.ts';
@@ -115,13 +115,23 @@ const prepareRuntimeTestGraph = (entryFile: string) => {
     if (moduleExtension === '.vue') {
       const compiledPath = join(runtimeRoot, `${relativePath}.js`);
       mkdirSync(dirname(compiledPath), { recursive: true });
-      writeFileSync(compiledPath, compileVueSfcModuleSync(source, modulePath), 'utf8');
+      const compiledFd = openSync(compiledPath, 'w');
+      try {
+        writeFileSync(compiledFd, compileVueSfcModuleSync(source, modulePath), 'utf8');
+      } finally {
+        closeSync(compiledFd);
+      }
       return;
     }
 
     const outputPath = join(runtimeRoot, relativePath);
     mkdirSync(dirname(outputPath), { recursive: true });
-    writeFileSync(outputPath, source, 'utf8');
+    const outputFd = openSync(outputPath, 'w');
+    try {
+      writeFileSync(outputFd, source, 'utf8');
+    } finally {
+      closeSync(outputFd);
+    }
   };
 
   emitModule(resolvedEntryFile);
