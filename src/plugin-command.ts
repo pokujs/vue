@@ -150,4 +150,4 @@ export const buildRunnerCommand = (
   return result;
 };
 
-export { canHandleRuntime };
+export { canHandleRuntime, prepareRuntimeTestGraph };
