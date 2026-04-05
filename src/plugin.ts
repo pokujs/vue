@@ -122,9 +122,9 @@ export const createVueTestingPlugin = (options: VueTestingPluginOptions = {}) =>
         (context.runtime === 'bun' || context.runtime === 'deno') &&
         context.configs?.isolation === 'none';
 
-      if (!needsGraphTransformation) return Array.from(files);
+      if (!needsGraphTransformation) return Array.from(files).sort();
 
-      return Array.from(files).map((file) => prepareRuntimeTestGraph(file));
+      return Array.from(files).sort().map((file) => prepareRuntimeTestGraph(file));
     },
   });
 };

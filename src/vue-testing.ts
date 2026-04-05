@@ -7,6 +7,7 @@ import {
   createRenderMetricsEmitter,
   createScreen,
   getNow,
+  wrapFireEventMethods,
 } from '@pokujs/dom';
 import { parseRuntimeOptions } from './runtime-options.ts';
 
@@ -238,25 +239,16 @@ const wrappedFireEvent: AsyncFireEvent = (async (
   return result;
 }) as AsyncFireEvent;
 
-for (const key of Object.keys(baseFireEventInstance) as Array<
-  keyof typeof baseFireEventInstance
->) {
-  const value = baseFireEventInstance[key];
-
-  if (typeof value !== 'function') {
-    Object.assign(wrappedFireEvent, { [key]: value });
-    continue;
+wrapFireEventMethods(
+  wrappedFireEvent as unknown as Record<string, unknown>,
+  baseFireEventInstance as unknown as Record<string, unknown>,
+  async (invoke) => {
+    const result = invoke();
+    await Promise.resolve();
+    await nextTick();
+    return result;
   }
-
-  Object.assign(wrappedFireEvent, {
-    [key]: async (...args: unknown[]) => {
-      const result = Reflect.apply(value, baseFireEventInstance, args);
-      await Promise.resolve();
-      await nextTick();
-      return result;
-    },
-  });
-}
+);
 
 export const fireEvent = wrappedFireEvent;
 
