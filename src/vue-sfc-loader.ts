@@ -1,9 +1,9 @@
-import { transform } from 'esbuild';
+import { transform, transformSync } from 'esbuild';
 import { compileScript, compileTemplate, parse } from '@vue/compiler-sfc';
 
 const DEFAULT_COMPONENT_EXPORT = 'const __sfc__ = {}\n';
 
-export const compileVueSfcModule = async (
+const buildVueSfcModuleCode = (
   source: string,
   absolutePath: string
 ) => {
@@ -63,6 +63,15 @@ export const compileVueSfcModule = async (
 
   moduleCode += '\nexport default __sfc__\n';
 
+  return moduleCode;
+};
+
+export const compileVueSfcModule = async (
+  source: string,
+  absolutePath: string
+) => {
+  const moduleCode = buildVueSfcModuleCode(source, absolutePath);
+
   const transpiled = await transform(moduleCode, {
     loader: 'ts',
     format: 'esm',
@@ -72,4 +81,19 @@ export const compileVueSfcModule = async (
   });
 
   return transpiled.code;
+};
+
+export const compileVueSfcModuleSync = (
+  source: string,
+  absolutePath: string
+) => {
+  const moduleCode = buildVueSfcModuleCode(source, absolutePath);
+
+  return transformSync(moduleCode, {
+    loader: 'ts',
+    format: 'esm',
+    target: 'es2022',
+    sourcemap: false,
+    sourcefile: absolutePath,
+  }).code;
 };
