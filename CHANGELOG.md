@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0 (2026-04-05)
+
+
+### Bug Fixes
+
+* correct CHANGELOG and reset version to 1.0.0 ([#1](https://github.com/pokujs/vue/issues/1)) ([27229f3](https://github.com/pokujs/vue/commit/27229f30dc2e256e5b6c2104fd459daadeb5d459))
+* update @pokujs/dom to ^1.0.1 ([6b314fe](https://github.com/pokujs/vue/commit/6b314fe1827c71ef11808aeca4c74e0c64bac9c6))
+
 ## [1.2.1](https://github.com/pokujs/vue/compare/v1.2.0...v1.2.1) (2026-04-03)
 
 
