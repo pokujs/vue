@@ -6,7 +6,7 @@ import {
   type BuildRunnerCommandInput,
 } from '@pokujs/dom';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileVueSfcModuleSync } from './vue-sfc-loader.ts';
@@ -117,7 +117,12 @@ const prepareRuntimeTestGraph = (entryFile: string) => {
       // Skip recompilation if the output already exists and is newer than the source.
       if (!existsSync(compiledPath) || statSync(modulePath).mtimeMs > statSync(compiledPath).mtimeMs) {
         mkdirSync(dirname(compiledPath), { recursive: true });
-        writeFileSync(compiledPath, compileVueSfcModuleSync(source, modulePath), 'utf8');
+        const compiledFd = openSync(compiledPath, 'w');
+        try {
+          writeFileSync(compiledFd, compileVueSfcModuleSync(source, modulePath), 'utf8');
+        } finally {
+          closeSync(compiledFd);
+        }
       }
       return;
     }
@@ -126,7 +131,12 @@ const prepareRuntimeTestGraph = (entryFile: string) => {
     // Skip re-writing non-vue modules when the output is already up-to-date.
     if (!existsSync(outputPath) || statSync(modulePath).mtimeMs > statSync(outputPath).mtimeMs) {
       mkdirSync(dirname(outputPath), { recursive: true });
-      writeFileSync(outputPath, source, 'utf8');
+      const outputFd = openSync(outputPath, 'w');
+      try {
+        writeFileSync(outputFd, source, 'utf8');
+      } finally {
+        closeSync(outputFd);
+      }
     }
   };
 
