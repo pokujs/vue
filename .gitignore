@@ -17,5 +17,6 @@ pnpm-debug.log*
 
 .turbo/
 .cache/
+.pokujs-vue-runtime/
 
 *.tsbuildinfo*.tgz

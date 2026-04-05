@@ -6,8 +6,8 @@ import type {
 } from './plugin-types.ts';
 import {
   createFrameworkTestingPluginFactory,
+  type FrameworkDescriptor,
 } from '@pokujs/dom';
-import type { FrameworkDescriptor } from '@pokujs/dom';
 import {
   buildRunnerCommand,
   canHandleRuntime,
@@ -23,6 +23,13 @@ import {
   selectTopSlowestMetrics,
 } from './plugin-metrics.ts';
 
+export type {
+  VueDomAdapter,
+  VueMetricsOptions,
+  VueMetricsSummary,
+  VueTestingPluginOptions,
+};
+
 const descriptor: FrameworkDescriptor = {
   pluginName: 'vue-testing',
   packageTag: '@pokujs/vue',
@@ -30,19 +37,13 @@ const descriptor: FrameworkDescriptor = {
   metricMessageType: 'POKU_VUE_RENDER_METRIC',
   metricBatchMessageType: 'POKU_VUE_RENDER_METRIC_BATCH',
   testFileExtensions: ['.ts', '.tsx', '.jsx'],
+  commandBuilder: (input) => buildRunnerCommand(input),
 };
 
 const { createTestingPlugin } = createFrameworkTestingPluginFactory(
   descriptor,
   import.meta.url
 );
-
-export type {
-  VueDomAdapter,
-  VueMetricsOptions,
-  VueMetricsSummary,
-  VueTestingPluginOptions,
-};
 
 export const createVueTestingPlugin = (
   options: VueTestingPluginOptions = {}
