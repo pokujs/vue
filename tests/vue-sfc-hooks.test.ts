@@ -35,3 +35,18 @@ test('tests composables through SFC harness and renderHook', async () => {
 
   assert.strictEqual(result.current.enabled.value, true);
 });
+
+test('renderHook.rerender keeps result.current live after destructuring', async () => {
+  const { result, rerender } = renderHook(
+    ({ value }: { value: string }) => value,
+    {
+      initialProps: { value: 'first' },
+    }
+  );
+
+  assert.strictEqual(result.current, 'first');
+
+  await rerender({ value: 'second' });
+
+  assert.strictEqual(result.current, 'second');
+});
