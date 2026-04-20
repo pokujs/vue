@@ -1,0 +1,56 @@
+name: '🔬 CI — Framework Majors'
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/ci_framework-majors.yml'
+      - 'src/**'
+      - 'tests/**'
+      - 'run.test.ts'
+      - 'package-lock.json'
+      - 'package.json'
+  pull_request:
+    paths:
+      - '.github/workflows/ci_framework-majors.yml'
+      - 'src/**'
+      - 'tests/**'
+      - 'run.test.ts'
+      - 'package-lock.json'
+      - 'package.json'
+  workflow_dispatch:
+
+jobs:
+  framework-majors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        vue-major: ['3.4', '3.5']
+    name: Vue ${{ matrix.vue-major }}
+    steps:
+      - name: ➕ Actions - Checkout
+        uses: actions/checkout@v4
+
+      - name: ➕ Actions - Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: ➕ Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-linux-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-linux-
+
+      - name: 📦 Installing Dependencies
+        run: npm ci
+
+      - name: 🔁 Pin Vue ${{ matrix.vue-major }}
+        run: npm install --no-save vue@${{ matrix.vue-major }} @vue/compiler-sfc@${{ matrix.vue-major }}
+
+      - name: 🔬 Vue ${{ matrix.vue-major }}
+        run: npm test

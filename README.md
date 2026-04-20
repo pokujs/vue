@@ -113,6 +113,34 @@ test('renders a heading', () => {
 
 ## Compatibility
 
+### Library Support
+
+| Package | Supported range |
+| ------- | :-------------: |
+| `vue` |    `>=3.4`     |
+| `poku` |   `>=4.1.0`    |
+| `happy-dom` |    `>=20`     |
+| `jsdom` |    `>=22`     |
+
+### Isolation Support
+
+| Isolation mode | Node validation |
+| -------------- | :-------------: |
+| `none`         |       ✅        |
+| `process`      |       ✅        |
+
+Scoped cleanup now mirrors the React and Angular adapters, which means Vue component trees mounted in one concurrent test no longer share a global cleanup set with sibling tests.
+
+### Multi-Major Suite
+
+Use this suite to verify Vue major compatibility locally:
+
+```bash
+npm run test:multi-major
+```
+
+It executes the full adapter tests twice, pinning Vue 3.4 and Vue 3.5 (with matching `@vue/compiler-sfc`).
+
 ### Runtime × DOM Adapter
 
 |                  | Node.js ≥ 20 | Bun ≥ 1 | Deno ≥ 2 |

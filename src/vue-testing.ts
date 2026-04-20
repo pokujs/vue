@@ -2,7 +2,8 @@ import type { BoundFunctions, Screen } from '@testing-library/dom';
 import type { Component, FunctionalComponent, VNode } from 'vue';
 import { getQueriesForElement, queries } from '@testing-library/dom';
 import * as domTestingLibrary from '@testing-library/dom';
-import { h, isVNode, nextTick, render as renderNode } from 'vue';
+import * as pokuDom from '@pokujs/dom';
+import { h, isVNode, nextTick, render as renderNode, shallowRef } from 'vue';
 import {
   createRenderMetricsEmitter,
   createScreen,
@@ -49,9 +50,92 @@ type InternalMounted = {
   ownsContainer: boolean;
 };
 
-const mountedRoots = new Set<InternalMounted>();
+type ScopeSlot<T> = {
+  readonly value: T;
+};
 
-const unmountMounted = (mounted: InternalMounted) => {
+type ScopeLike = {
+  getOrCreateSlot<T>(key: symbol, init: () => T): ScopeSlot<T>;
+  getSlot?<T>(key: symbol): ScopeSlot<T> | undefined;
+  addCleanup?(fn: () => void | Promise<void>): void;
+};
+
+type DomScopeApi = {
+  defineSlotKey?: <T>(name: string) => symbol;
+  getOrCreateScope?: () => ScopeLike | undefined;
+  getCurrentScope?: () => ScopeLike | undefined;
+};
+
+const domScopeApi = pokuDom as unknown as DomScopeApi;
+
+const MOUNTED_ROOTS_SLOT_KEY =
+  typeof domScopeApi.defineSlotKey === 'function'
+    ? domScopeApi.defineSlotKey<Set<InternalMounted>>(
+        '@pokujs/vue.mounted-roots'
+      )
+    : undefined;
+
+const CLEANUP_STATE_SLOT_KEY =
+  typeof domScopeApi.defineSlotKey === 'function'
+    ? domScopeApi.defineSlotKey<{ registered: boolean }>(
+        '@pokujs/vue.cleanup-registered'
+      )
+    : undefined;
+
+const fallbackMountedRoots = new Set<InternalMounted>();
+
+const cleanupMountedRoots = (mountedRoots: Set<InternalMounted>) => {
+  for (const mounted of [...mountedRoots]) {
+    unmountMounted(mountedRoots, mounted);
+  }
+};
+
+const getScopedMountedRoots = (): Set<InternalMounted> | undefined => {
+  if (!MOUNTED_ROOTS_SLOT_KEY) return undefined;
+  if (typeof domScopeApi.getOrCreateScope !== 'function') return undefined;
+
+  const scope = domScopeApi.getOrCreateScope();
+  if (!scope) return undefined;
+
+  const mountedRoots = scope.getOrCreateSlot(MOUNTED_ROOTS_SLOT_KEY, () =>
+    new Set<InternalMounted>()
+  ).value;
+
+  if (!CLEANUP_STATE_SLOT_KEY || typeof scope.addCleanup !== 'function') {
+    return mountedRoots;
+  }
+
+  const cleanupState = scope.getOrCreateSlot(CLEANUP_STATE_SLOT_KEY, () => ({
+    registered: false,
+  })).value;
+
+  if (!cleanupState.registered) {
+    cleanupState.registered = true;
+    scope.addCleanup(() => {
+      cleanupMountedRoots(mountedRoots);
+      metrics.flushMetricBuffer();
+    });
+  }
+
+  return mountedRoots;
+};
+
+const getMountedRoots = (): Set<InternalMounted> =>
+  getScopedMountedRoots() ?? fallbackMountedRoots;
+
+const getCurrentScopedMountedRoots = (): Set<InternalMounted> | undefined => {
+  if (!MOUNTED_ROOTS_SLOT_KEY) return undefined;
+  if (typeof domScopeApi.getCurrentScope !== 'function') return undefined;
+
+  const scope = domScopeApi.getCurrentScope();
+  const slot = scope?.getSlot?.<Set<InternalMounted>>(MOUNTED_ROOTS_SLOT_KEY);
+  return slot?.value;
+};
+
+const unmountMounted = (
+  mountedRoots: Set<InternalMounted>,
+  mounted: InternalMounted
+) => {
   try {
     if (mounted.container) {
       renderNode(null, mounted.container);
@@ -124,6 +208,7 @@ export function render<TComponent extends Component>(
   ui: TComponent | VNode,
   options: RenderInputOptions<TComponent> = {}
 ): RenderResult {
+  const mountedRoots = getMountedRoots();
   const baseElement = options.baseElement || document.body;
   const container = options.container || document.createElement('div');
   const ownsContainer = !options.container;
@@ -139,7 +224,7 @@ export function render<TComponent extends Component>(
 
   const unmount = () => {
     if (!mountedRoots.has(mounted)) return;
-    unmountMounted(mounted);
+    unmountMounted(mountedRoots, mounted);
   };
 
   const rerender: Rerender = async (
@@ -183,35 +268,43 @@ export const renderHook = <Result, Props = Record<string, unknown>>(
 ): RenderHookResult<Result, Props> => {
   let currentResult!: Result;
   let currentProps = options.initialProps ?? ({} as Props);
+  const hookProps = shallowRef(currentProps);
 
   const HookHarness: Component = {
     name: 'HookHarness',
     setup() {
       return () => {
-        currentResult = hook(currentProps);
+        currentResult = hook(hookProps.value);
         return null;
       };
     },
   };
 
   const view = render(h(HookHarness), options);
+  const resultRef: { current: Result } = {
+    get current() {
+      return currentResult;
+    },
+  } as { current: Result };
 
   return {
     get result() {
-      return { current: currentResult };
+      return resultRef;
     },
     async rerender(nextProps = currentProps) {
       currentProps = nextProps;
-      await view.rerender(h(HookHarness));
+      hookProps.value = nextProps;
+      await nextTick();
     },
     unmount: view.unmount,
   };
 };
 
 export const cleanup = () => {
-  for (const mounted of [...mountedRoots]) {
-    unmountMounted(mounted);
-  }
+  const scopedMountedRoots = getCurrentScopedMountedRoots();
+  if (scopedMountedRoots) cleanupMountedRoots(scopedMountedRoots);
+
+  cleanupMountedRoots(fallbackMountedRoots);
 
   metrics.flushMetricBuffer();
 };
