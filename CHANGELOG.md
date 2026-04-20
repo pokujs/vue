@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/pokujs/vue/compare/vue-v1.0.1...vue-v1.1.0) (2026-04-20)
+
+
+### Features
+
+* add Vue multi-major compatibility suite ([#6](https://github.com/pokujs/vue/issues/6)) ([280f868](https://github.com/pokujs/vue/commit/280f8685ac021fb5a587bfb2b6e5dfef8a6e8036))
+
 ## [1.0.1](https://github.com/pokujs/vue/compare/vue-v1.0.0...vue-v1.0.1) (2026-04-05)
 
 
