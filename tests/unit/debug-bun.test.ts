@@ -11,10 +11,16 @@ describe('debug bun command', () => {
       domSetupPath: '/tmp/dom-setup.ts',
       runtimeOptionArgs: [],
     });
-    
+
     console.log('Bun command:', result.command);
     console.log('shouldHandle:', result.shouldHandle);
+
+    const preloadFlag = result.command.find(arg => arg.startsWith('--preload'));
+    console.log('preloadFlag:', preloadFlag);
+
     assert.ok(Array.isArray(result.command));
-    assert.ok(result.command[1].includes('.pokujs-vue-runtime'));
+    assert.ok(result.command[2].includes('.pokujs-vue-runtime'));
+    assert.ok(preloadFlag, 'Expected --preload flag for Bun');
+    assert.strictEqual(preloadFlag, '--preload /tmp/dom-setup.ts');
   });
 });

@@ -22,7 +22,7 @@ const resolveSetupModulePath = (baseName: string) => {
 const happyDomSetupPath = resolveSetupModulePath('dom-setup-happy');
 const jsdomSetupPath = resolveSetupModulePath('dom-setup-jsdom');
 
-const vueExtensions = new Set(['.ts', '.tsx', '.jsx']);
+const vueExtensions = new Set(['.ts', '.tsx', '.jsx', '.vue']);
 
 export const resolveDomSetupPath = createDomSetupPathResolver(
   '@pokujs/vue',

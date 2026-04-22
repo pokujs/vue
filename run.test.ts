@@ -1,10 +1,10 @@
 import { assert, poku } from 'poku';
 import { vueTestingPlugin } from './src/plugin.ts';
 
-// isolation: 'process' — each test file runs as a subprocess, DOM environments are sandboxed
+// isolation: 'none' — test files run in the same process; suites must be sequential
 const happyCode = await poku('tests', {
   noExit: true,
-  isolation: 'process',
+  isolation: 'none',
   plugins: [vueTestingPlugin({ dom: 'happy-dom' })],
 });
 
