@@ -1,9 +1,12 @@
 import {
+  closeSync,
+  fstatSync,
+  ftruncateSync,
+  futimesSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   rmSync,
-  statSync,
-  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -29,30 +32,35 @@ describe('runtime module cache', () => {
     try {
       writeFileSync(entry, 'export const value = "original long value";');
       const output = prepareRuntimeTestGraph(entry);
-      const original = readFileSync(output, 'utf8');
-      const cachedTime = new Date(Date.now() + 60_000);
-      utimesSync(output, cachedTime, cachedTime);
-      const cachedMtime = statSync(output).mtimeMs;
+      const outputFd = openSync(output, 'r+');
+      try {
+        const original = readFileSync(output, 'utf8');
+        const cachedTime = new Date(Date.now() + 60_000);
+        futimesSync(outputFd, cachedTime, cachedTime);
+        const cachedMtime = fstatSync(outputFd).mtimeMs;
 
-      prepareRuntimeTestGraph(entry);
-      assert.strictEqual(statSync(output).mtimeMs, cachedMtime);
-      assert.strictEqual(readFileSync(output, 'utf8'), original);
+        prepareRuntimeTestGraph(entry);
+        assert.strictEqual(fstatSync(outputFd).mtimeMs, cachedMtime);
+        assert.strictEqual(readFileSync(output, 'utf8'), original);
 
-      writeFileSync(entry, 'export const value = 1;');
-      const staleTime = new Date(0);
-      utimesSync(output, staleTime, staleTime);
-      prepareRuntimeTestGraph(entry);
-      assert.strictEqual(
-        readFileSync(output, 'utf8'),
-        'export const value = 1;'
-      );
+        writeFileSync(entry, 'export const value = 1;');
+        const staleTime = new Date(0);
+        futimesSync(outputFd, staleTime, staleTime);
+        prepareRuntimeTestGraph(entry);
+        assert.strictEqual(
+          readFileSync(output, 'utf8'),
+          'export const value = 1;'
+        );
 
-      writeFileSync(output, '');
-      prepareRuntimeTestGraph(entry);
-      assert.strictEqual(
-        readFileSync(output, 'utf8'),
-        'export const value = 1;'
-      );
+        ftruncateSync(outputFd, 0);
+        prepareRuntimeTestGraph(entry);
+        assert.strictEqual(
+          readFileSync(output, 'utf8'),
+          'export const value = 1;'
+        );
+      } finally {
+        closeSync(outputFd);
+      }
     } finally {
       rmSync(root, { recursive: true, force: true });
       rmSync(outputRoot, { recursive: true, force: true });
