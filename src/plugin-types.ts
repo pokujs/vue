@@ -2,8 +2,6 @@ import type {
   DomAdapter,
   MetricsOptions,
   MetricsSummary,
-  NormalizedMetricsOptions,
-  RenderMetric,
   TestingPluginOptions,
 } from '@pokujs/dom';
 
@@ -12,7 +10,4 @@ export type VueMetricsSummary = MetricsSummary;
 export type VueMetricsOptions = MetricsOptions;
 export type VueTestingPluginOptions = TestingPluginOptions;
 
-export type {
-  NormalizedMetricsOptions,
-  RenderMetric,
-};
+export type { NormalizedMetricsOptions, RenderMetric } from '@pokujs/dom';

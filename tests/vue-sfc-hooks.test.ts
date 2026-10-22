@@ -1,5 +1,4 @@
 import { afterEach, assert, test } from 'poku';
-import ToggleHarness from './__fixtures__/ToggleHarness.vue';
 import {
   cleanup,
   fireEvent,
@@ -7,6 +6,7 @@ import {
   renderHook,
   screen,
 } from '../src/index.ts';
+import ToggleHarness from './__fixtures__/ToggleHarness.vue';
 import { useToggle } from './helpers/use-toggle.ts';
 
 afterEach(cleanup);

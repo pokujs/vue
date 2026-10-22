@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from '@jest/globals';
 import { cleanup, render, screen } from '@testing-library/vue';
-import { ThemeLabel, themeKey } from '../shared/scenarios.js';
+import { themeKey, ThemeLabel } from '../shared/scenarios.js';
 
 afterEach(cleanup);
 

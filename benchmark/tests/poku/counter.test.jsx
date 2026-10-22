@@ -1,5 +1,5 @@
-import { afterEach, assert, test } from 'poku';
 import { cleanup, fireEvent, render, screen } from '@pokujs/vue';
+import { afterEach, assert, test } from 'poku';
 import { CounterButton } from '../shared/scenarios.js';
 
 afterEach(cleanup);

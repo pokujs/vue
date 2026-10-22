@@ -1,5 +1,5 @@
-import { defineConfig } from 'poku';
 import { vueTestingPlugin } from '@pokujs/vue/plugin';
+import { defineConfig } from 'poku';
 
 const dom = process.env.POKU_VUE_TEST_DOM;
 if (!dom) {

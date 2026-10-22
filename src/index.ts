@@ -13,5 +13,13 @@ export {
   render,
   renderHook,
   screen,
+  waitFor,
 } from './vue-testing.ts';
-export * from './vue-testing.ts';
+export type {
+  RenderHookOptions,
+  RenderHookResult,
+  RenderOptions,
+  RenderResult,
+  VueGlobalOptions,
+} from './vue-testing.ts';
+export * from '@testing-library/dom';

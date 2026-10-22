@@ -1,8 +1,8 @@
 import type {
   NormalizedMetricsOptions,
+  RenderMetric,
   VueMetricsSummary,
   VueTestingPluginOptions,
-  RenderMetric,
 } from './plugin-types.ts';
 import {
   buildRuntimeOptionArgs as buildCoreRuntimeOptionArgs,
@@ -28,7 +28,8 @@ export const isRenderMetricBatchMessage = (message: unknown) =>
 export const buildRuntimeOptionArgs = (
   options: VueTestingPluginOptions,
   metricsOptions: NormalizedMetricsOptions
-) => buildCoreRuntimeOptionArgs(options, metricsOptions, runtimeOptionArgPrefixes);
+) =>
+  buildCoreRuntimeOptionArgs(options, metricsOptions, runtimeOptionArgPrefixes);
 
 export const printMetricsSummary = (summary: VueMetricsSummary) =>
   printCoreMetricsSummary(summary, '@pokujs/vue');

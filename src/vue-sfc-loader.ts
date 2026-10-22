@@ -1,12 +1,9 @@
-import { transform, transformSync } from 'esbuild';
 import { compileScript, compileTemplate, parse } from '@vue/compiler-sfc';
+import { transform, transformSync } from 'esbuild';
 
 const DEFAULT_COMPONENT_EXPORT = 'const __sfc__ = {}\n';
 
-const buildVueSfcModuleCode = (
-  source: string,
-  absolutePath: string
-) => {
+const buildVueSfcModuleCode = (source: string, absolutePath: string) => {
   const { descriptor, errors } = parse(source, {
     filename: absolutePath,
   });
@@ -18,10 +15,16 @@ const buildVueSfcModuleCode = (
     );
   }
 
-  const scriptResult = descriptor.script || descriptor.scriptSetup
+  const hasScript = Boolean(descriptor.script || descriptor.scriptSetup);
+  const canInlineTemplate = Boolean(
+    descriptor.scriptSetup && descriptor.template && !descriptor.template.src
+  );
+
+  const scriptResult = hasScript
     ? compileScript(descriptor, {
         id: absolutePath,
         genDefaultAs: '__sfc__',
+        inlineTemplate: canInlineTemplate,
       })
     : null;
 
@@ -29,7 +32,7 @@ const buildVueSfcModuleCode = (
     ? scriptResult.content
     : DEFAULT_COMPONENT_EXPORT;
 
-  if (descriptor.template) {
+  if (descriptor.template && !canInlineTemplate) {
     const templateResult = compileTemplate(
       scriptResult?.bindings
         ? {
@@ -58,7 +61,8 @@ const buildVueSfcModuleCode = (
   }
 
   if (descriptor.styles.length > 0) {
-    moduleCode += '\n/* Vue test SFC styles intentionally ignored at runtime. */\n';
+    moduleCode +=
+      '\n/* Vue test SFC styles intentionally ignored at runtime. */\n';
   }
 
   moduleCode += '\nexport default __sfc__\n';

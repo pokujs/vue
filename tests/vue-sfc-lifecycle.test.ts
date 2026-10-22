@@ -1,11 +1,7 @@
 import { afterEach, assert, test } from 'poku';
+import { cleanup, render, screen } from '../src/index.ts';
 import GreetingCard from './__fixtures__/GreetingCard.vue';
 import UnmountWatcher from './__fixtures__/UnmountWatcher.vue';
-import {
-  cleanup,
-  render,
-  screen,
-} from '../src/index.ts';
 
 afterEach(cleanup);
 

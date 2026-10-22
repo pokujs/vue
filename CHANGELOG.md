@@ -2,45 +2,39 @@
 
 ## [1.1.0](https://github.com/pokujs/vue/compare/vue-v1.0.1...vue-v1.1.0) (2026-04-20)
 
-
 ### Features
 
-* add Vue multi-major compatibility suite ([#6](https://github.com/pokujs/vue/issues/6)) ([280f868](https://github.com/pokujs/vue/commit/280f8685ac021fb5a587bfb2b6e5dfef8a6e8036))
+- add Vue multi-major compatibility suite ([#6](https://github.com/pokujs/vue/issues/6)) ([280f868](https://github.com/pokujs/vue/commit/280f8685ac021fb5a587bfb2b6e5dfef8a6e8036))
 
 ## [1.0.1](https://github.com/pokujs/vue/compare/vue-v1.0.0...vue-v1.0.1) (2026-04-05)
 
-
 ### Bug Fixes
 
-* correct CHANGELOG and reset version to 1.0.0 ([#1](https://github.com/pokujs/vue/issues/1)) ([27229f3](https://github.com/pokujs/vue/commit/27229f30dc2e256e5b6c2104fd459daadeb5d459))
-* update @pokujs/dom to ^1.0.1 ([6b314fe](https://github.com/pokujs/vue/commit/6b314fe1827c71ef11808aeca4c74e0c64bac9c6))
-
+- correct CHANGELOG and reset version to 1.0.0 ([#1](https://github.com/pokujs/vue/issues/1)) ([27229f3](https://github.com/pokujs/vue/commit/27229f30dc2e256e5b6c2104fd459daadeb5d459))
+- update @pokujs/dom to ^1.0.1 ([6b314fe](https://github.com/pokujs/vue/commit/6b314fe1827c71ef11808aeca4c74e0c64bac9c6))
 
 ### Performance Improvements
 
-* wrapFireEventMethods, mtime-based recompile skip, sort discoverFiles ([#3](https://github.com/pokujs/vue/issues/3)) ([5177cb0](https://github.com/pokujs/vue/commit/5177cb06df0f4bdc9693f89c49ee5b0aa2863c82))
+- wrapFireEventMethods, mtime-based recompile skip, sort discoverFiles ([#3](https://github.com/pokujs/vue/issues/3)) ([5177cb0](https://github.com/pokujs/vue/commit/5177cb06df0f4bdc9693f89c49ee5b0aa2863c82))
 
 ## 1.0.0 (2026-04-05)
 
-
 ### Bug Fixes
 
-* correct CHANGELOG and reset version to 1.0.0 ([#1](https://github.com/pokujs/vue/issues/1)) ([27229f3](https://github.com/pokujs/vue/commit/27229f30dc2e256e5b6c2104fd459daadeb5d459))
-* update @pokujs/dom to ^1.0.1 ([6b314fe](https://github.com/pokujs/vue/commit/6b314fe1827c71ef11808aeca4c74e0c64bac9c6))
+- correct CHANGELOG and reset version to 1.0.0 ([#1](https://github.com/pokujs/vue/issues/1)) ([27229f3](https://github.com/pokujs/vue/commit/27229f30dc2e256e5b6c2104fd459daadeb5d459))
+- update @pokujs/dom to ^1.0.1 ([6b314fe](https://github.com/pokujs/vue/commit/6b314fe1827c71ef11808aeca4c74e0c64bac9c6))
 
 ## [1.2.1](https://github.com/pokujs/vue/compare/v1.2.0...v1.2.1) (2026-04-03)
 
-
 ### Bug Fixes
 
-* update package repository URL ([#12](https://github.com/pokujs/vue/issues/12)) ([3da8523](https://github.com/pokujs/vue/commit/3da85234d70a7ec846a48ea7b066bf82e50763bb))
+- update package repository URL ([#12](https://github.com/pokujs/vue/issues/12)) ([3da8523](https://github.com/pokujs/vue/commit/3da85234d70a7ec846a48ea7b066bf82e50763bb))
 
 ## [1.2.0](https://github.com/Lojhan/poku-vue-testing/compare/v1.1.0...v1.2.0) (2026-04-01)
 
-
 ### Features
 
-* refactor plugin internals and stabilize isolation:none ([#8](https://github.com/Lojhan/poku-vue-testing/issues/8)) ([cd2d93d](https://github.com/Lojhan/poku-vue-testing/commit/cd2d93d41f913c0a581663a8f9e261c2c6574f27))
+- refactor plugin internals and stabilize isolation:none ([#8](https://github.com/Lojhan/poku-vue-testing/issues/8)) ([cd2d93d](https://github.com/Lojhan/poku-vue-testing/commit/cd2d93d41f913c0a581663a8f9e261c2c6574f27))
 
 ## [1.1.0](https://github.com/Lojhan/poku-vue-testing/compare/v1.0.1...v1.1.0) (2026-03-31)
 

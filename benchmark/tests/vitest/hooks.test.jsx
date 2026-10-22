@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/vue';
-import { ToggleHarness } from '../shared/scenarios.js';
 import { afterEach, expect, test } from 'vitest';
+import { ToggleHarness } from '../shared/scenarios.js';
 
 afterEach(cleanup);
 

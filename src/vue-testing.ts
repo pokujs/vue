@@ -1,37 +1,81 @@
-import type { BoundFunctions, Screen } from '@testing-library/dom';
-import type { Component, FunctionalComponent, VNode } from 'vue';
-import { getQueriesForElement, queries } from '@testing-library/dom';
-import * as domTestingLibrary from '@testing-library/dom';
-import * as pokuDom from '@pokujs/dom';
-import { h, isVNode, nextTick, render as renderNode, shallowRef } from 'vue';
+import type {
+  BoundFunctions,
+  PrettyDOMOptions,
+  Screen,
+} from '@testing-library/dom';
+import type {
+  App,
+  Component,
+  Directive,
+  FunctionalComponent,
+  VNode,
+  Plugin as VuePlugin,
+} from 'vue';
+import { createRequire } from 'node:module';
 import {
+  createAsFragment,
+  createDebug,
   createRenderMetricsEmitter,
+  createScopedRegistry,
   createScreen,
+  createWaitFor,
   getNow,
   wrapFireEventMethods,
 } from '@pokujs/dom';
+import { getQueriesForElement, queries } from '@testing-library/dom';
+import * as domTestingLibrary from '@testing-library/dom';
 import { parseRuntimeOptions } from './runtime-options.ts';
+
+type VueRuntimeModule = typeof import('vue');
+
+let cachedVueRuntime: VueRuntimeModule | undefined;
+
+const getVueRuntime = (): VueRuntimeModule => {
+  if (!cachedVueRuntime) {
+    const g = globalThis as typeof globalThis & {
+      __VUE_DEVTOOLS_GLOBAL_HOOK__?: { enabled?: boolean; emit: () => void };
+    };
+    g.__VUE_DEVTOOLS_GLOBAL_HOOK__ ??= { enabled: false, emit() {} };
+    const require = createRequire(import.meta.url);
+    cachedVueRuntime = require('vue') as VueRuntimeModule;
+  }
+
+  return cachedVueRuntime;
+};
 
 type WrapperComponent = Component;
 type VueRenderable = Component | VNode;
+export type VueGlobalOptions = {
+  plugins?: Array<VuePlugin | [VuePlugin, ...unknown[]]>;
+  provide?: Record<PropertyKey, unknown>;
+  components?: Record<string, Component>;
+  directives?: Record<string, Directive>;
+  config?: Partial<App['config']>;
+};
+
 type RenderBaseOptions = {
   container?: HTMLElement;
   baseElement?: HTMLElement;
   wrapper?: WrapperComponent;
+  slots?: Record<string, unknown>;
+  attrs?: Record<string, unknown>;
+  global?: VueGlobalOptions;
 };
 
-type ComponentProps<TComponent> =
-  TComponent extends new (...args: any[]) => { $props: infer Props }
+type ComponentProps<TComponent> = TComponent extends new (...args: any[]) => {
+  $props: infer Props;
+}
+  ? Props
+  : TComponent extends FunctionalComponent<infer Props>
     ? Props
-    : TComponent extends FunctionalComponent<infer Props>
+    : TComponent extends (props: infer Props, ...args: any[]) => unknown
       ? Props
-      : TComponent extends (props: infer Props, ...args: any[]) => unknown
-        ? Props
-        : never;
+      : Record<string, unknown>;
 
-type RenderComponentOptions<TComponent extends Component> = RenderBaseOptions & {
-  props?: ComponentProps<TComponent>;
-};
+type RenderComponentOptions<TComponent extends Component> =
+  RenderBaseOptions & {
+    props?: Partial<ComponentProps<TComponent>> & Record<string, unknown>;
+  };
 
 type RenderInputOptions<TComponent extends Component> =
   | RenderBaseOptions
@@ -40,96 +84,18 @@ type RenderInputOptions<TComponent extends Component> =
 type Rerender = {
   <TComponent extends Component>(
     component: TComponent,
-    options?: { props?: ComponentProps<TComponent> }
+    options?: {
+      props?: Partial<ComponentProps<TComponent>> & Record<string, unknown>;
+    }
   ): Promise<void>;
+  (props: Record<string, unknown>): Promise<void>;
   (ui: VNode): Promise<void>;
 };
 
 type InternalMounted = {
+  app: App<Element> | null;
   container: Element | null;
   ownsContainer: boolean;
-};
-
-type ScopeSlot<T> = {
-  readonly value: T;
-};
-
-type ScopeLike = {
-  getOrCreateSlot<T>(key: symbol, init: () => T): ScopeSlot<T>;
-  getSlot?<T>(key: symbol): ScopeSlot<T> | undefined;
-  addCleanup?(fn: () => void | Promise<void>): void;
-};
-
-type DomScopeApi = {
-  defineSlotKey?: <T>(name: string) => symbol;
-  getOrCreateScope?: () => ScopeLike | undefined;
-  getCurrentScope?: () => ScopeLike | undefined;
-};
-
-const domScopeApi = pokuDom as unknown as DomScopeApi;
-
-const MOUNTED_ROOTS_SLOT_KEY =
-  typeof domScopeApi.defineSlotKey === 'function'
-    ? domScopeApi.defineSlotKey<Set<InternalMounted>>(
-        '@pokujs/vue.mounted-roots'
-      )
-    : undefined;
-
-const CLEANUP_STATE_SLOT_KEY =
-  typeof domScopeApi.defineSlotKey === 'function'
-    ? domScopeApi.defineSlotKey<{ registered: boolean }>(
-        '@pokujs/vue.cleanup-registered'
-      )
-    : undefined;
-
-const fallbackMountedRoots = new Set<InternalMounted>();
-
-const cleanupMountedRoots = (mountedRoots: Set<InternalMounted>) => {
-  for (const mounted of [...mountedRoots]) {
-    unmountMounted(mountedRoots, mounted);
-  }
-};
-
-const getScopedMountedRoots = (): Set<InternalMounted> | undefined => {
-  if (!MOUNTED_ROOTS_SLOT_KEY) return undefined;
-  if (typeof domScopeApi.getOrCreateScope !== 'function') return undefined;
-
-  const scope = domScopeApi.getOrCreateScope();
-  if (!scope) return undefined;
-
-  const mountedRoots = scope.getOrCreateSlot(MOUNTED_ROOTS_SLOT_KEY, () =>
-    new Set<InternalMounted>()
-  ).value;
-
-  if (!CLEANUP_STATE_SLOT_KEY || typeof scope.addCleanup !== 'function') {
-    return mountedRoots;
-  }
-
-  const cleanupState = scope.getOrCreateSlot(CLEANUP_STATE_SLOT_KEY, () => ({
-    registered: false,
-  })).value;
-
-  if (!cleanupState.registered) {
-    cleanupState.registered = true;
-    scope.addCleanup(() => {
-      cleanupMountedRoots(mountedRoots);
-      metrics.flushMetricBuffer();
-    });
-  }
-
-  return mountedRoots;
-};
-
-const getMountedRoots = (): Set<InternalMounted> =>
-  getScopedMountedRoots() ?? fallbackMountedRoots;
-
-const getCurrentScopedMountedRoots = (): Set<InternalMounted> | undefined => {
-  if (!MOUNTED_ROOTS_SLOT_KEY) return undefined;
-  if (typeof domScopeApi.getCurrentScope !== 'function') return undefined;
-
-  const scope = domScopeApi.getCurrentScope();
-  const slot = scope?.getSlot?.<Set<InternalMounted>>(MOUNTED_ROOTS_SLOT_KEY);
-  return slot?.value;
 };
 
 const unmountMounted = (
@@ -138,33 +104,72 @@ const unmountMounted = (
 ) => {
   try {
     if (mounted.container) {
-      renderNode(null, mounted.container);
+      getVueRuntime().render(null, mounted.container);
     }
   } finally {
     if (mounted.ownsContainer && mounted.container?.parentNode) {
       mounted.container.parentNode.removeChild(mounted.container);
     }
 
+    mounted.app = null;
     mounted.container = null;
     mountedRoots.delete(mounted);
   }
 };
 
+const cleanupMountedRoots = (mountedRoots: Set<InternalMounted>) => {
+  for (const mounted of [...mountedRoots]) {
+    unmountMounted(mountedRoots, mounted);
+  }
+};
+
+const metrics = createRenderMetricsEmitter({
+  runtimeOptions: () => parseRuntimeOptions(),
+  metricsStateKey: Symbol.for('@pokujs/vue.metrics-runtime-state'),
+  metricsBatchMessageType: 'POKU_VUE_RENDER_METRIC_BATCH',
+});
+
+const registry = createScopedRegistry<InternalMounted>({
+  name: '@pokujs/vue.mounted-roots',
+  onCleanup: (mountedRoots) => {
+    cleanupMountedRoots(mountedRoots);
+    metrics.flushMetricBuffer();
+  },
+});
+
 const isVNodeLike = (value: unknown): value is VNode =>
   typeof value === 'object' &&
   value !== null &&
-  (isVNode(value) || (value as Record<string, unknown>).__v_isVNode === true);
+  (getVueRuntime().isVNode(value) ||
+    (value as Record<string, unknown>).__v_isVNode === true);
+
+const normalizeSlots = (slots: Record<string, unknown> | undefined) => {
+  if (!slots) return undefined;
+  const normalized: Record<string, () => unknown> = {};
+  for (const [name, slotValue] of Object.entries(slots)) {
+    normalized[name] =
+      typeof slotValue === 'function'
+        ? (slotValue as () => unknown)
+        : () => slotValue;
+  }
+  return normalized;
+};
 
 const toVNode = <TComponent extends Component>(
   ui: VueRenderable,
-  options?: RenderInputOptions<TComponent>
+  props?: Record<string, unknown>,
+  slots?: Record<string, unknown>
 ) => {
   if (isVNodeLike(ui)) return ui;
-  return h(ui as Component, (options as RenderComponentOptions<TComponent> | undefined)?.props as any);
+  return getVueRuntime().h(
+    ui as Component,
+    props as any,
+    normalizeSlots(slots)
+  );
 };
 
 const getComponentName = (ui: VueRenderable) => {
-  const uiType = isVNode(ui) ? ui.type : ui;
+  const uiType = getVueRuntime().isVNode(ui) ? ui.type : ui;
 
   if (typeof uiType === 'string') return uiType;
   if (typeof uiType === 'function') return uiType.name || 'AnonymousComponent';
@@ -173,20 +178,55 @@ const getComponentName = (ui: VueRenderable) => {
   return typed.name || typed.__name || 'AnonymousComponent';
 };
 
-const runtimeOptions = parseRuntimeOptions();
-const metrics = createRenderMetricsEmitter({
-  runtimeOptions,
-  metricsStateKey: Symbol.for('@pokujs/vue.metrics-runtime-state'),
-  metricsBatchMessageType: 'POKU_VUE_RENDER_METRIC_BATCH',
-});
+const wrapUi = (ui: VNode, Wrapper?: WrapperComponent) => {
+  if (!Wrapper) return ui;
 
-const wrapUi = (ui: VueRenderable, Wrapper?: WrapperComponent) => {
-  const wrapped = toVNode(ui);
-  if (!Wrapper) return wrapped;
-
-  return h(Wrapper, undefined, {
-    default: () => [wrapped],
+  return getVueRuntime().h(Wrapper, undefined, {
+    default: () => [ui],
   });
+};
+
+const applyGlobalOptions = (
+  app: App<Element>,
+  globalOptions?: VueGlobalOptions
+) => {
+  if (!globalOptions) return;
+
+  if (globalOptions.config) {
+    Object.assign(app.config, globalOptions.config);
+  }
+
+  if (globalOptions.plugins) {
+    for (const pluginEntry of globalOptions.plugins) {
+      if (Array.isArray(pluginEntry)) {
+        const [plugin, ...pluginOptions] = pluginEntry;
+        app.use(plugin, ...pluginOptions);
+      } else {
+        app.use(pluginEntry);
+      }
+    }
+  }
+
+  if (globalOptions.provide) {
+    for (const key of Reflect.ownKeys(globalOptions.provide)) {
+      app.provide(
+        key as string | symbol,
+        (globalOptions.provide as Record<PropertyKey, unknown>)[key]
+      );
+    }
+  }
+
+  if (globalOptions.components) {
+    for (const [name, comp] of Object.entries(globalOptions.components)) {
+      app.component(name, comp);
+    }
+  }
+
+  if (globalOptions.directives) {
+    for (const [name, dir] of Object.entries(globalOptions.directives)) {
+      app.directive(name, dir);
+    }
+  }
 };
 
 export type RenderOptions<TComponent extends Component = Component> =
@@ -197,6 +237,13 @@ export type RenderResult = BoundFunctions<typeof queries> & {
   baseElement: HTMLElement;
   rerender: Rerender;
   unmount: () => void;
+  emitted: <T = unknown[]>(eventName?: string) => T[] | Record<string, T[]>;
+  asFragment: () => DocumentFragment;
+  debug: (
+    element?: Array<Element | HTMLDocument> | Element | HTMLDocument,
+    maxLength?: number,
+    options?: PrettyDOMOptions
+  ) => void;
 };
 
 export function render<TComponent extends Component>(
@@ -208,18 +255,85 @@ export function render<TComponent extends Component>(
   ui: TComponent | VNode,
   options: RenderInputOptions<TComponent> = {}
 ): RenderResult {
-  const mountedRoots = getMountedRoots();
-  const baseElement = options.baseElement || document.body;
+  const {
+    createApp,
+    defineComponent,
+    h,
+    nextTick,
+    render: renderNode,
+    shallowRef,
+  } = getVueRuntime();
+  const mountedRoots = registry.getItems();
+  const baseElement = options.baseElement || options.container || document.body;
   const container = options.container || document.createElement('div');
   const ownsContainer = !options.container;
 
   if (ownsContainer) baseElement.appendChild(container);
 
-  const mounted: InternalMounted = { container, ownsContainer };
+  const initialProps = (
+    options as RenderComponentOptions<TComponent> | undefined
+  )?.props;
+  const mergedInitialProps = {
+    ...(options.attrs ?? {}),
+    ...(initialProps ?? {}),
+  };
+
+  const currentUiRef = shallowRef<VueRenderable>(ui);
+  const currentPropsRef =
+    shallowRef<Record<string, unknown>>(mergedInitialProps);
+  const emittedEvents: Record<string, unknown[][]> = {};
+
+  const recordEmit = (event: string, args: unknown[]) => {
+    if (!emittedEvents[event]) emittedEvents[event] = [];
+    emittedEvents[event].push(args);
+  };
+
+  const RootHarness = defineComponent({
+    name: 'PokuVueTestRoot',
+    setup() {
+      return () => {
+        const target = currentUiRef.value;
+        const props = currentPropsRef.value;
+        const vnode = toVNode(target, props, options.slots);
+        return wrapUi(vnode, options.wrapper);
+      };
+    },
+  });
+
+  const app = createApp(RootHarness);
+  applyGlobalOptions(app, options.global);
+
+  // Intercept component emits on the rendered target component instance
+  app.mixin({
+    beforeCreate() {
+      const instance = (this as any)?.$;
+      if (!instance) return;
+      const isDirectTarget =
+        !options.wrapper && instance.parent?.type === RootHarness;
+      const isWrappedTarget =
+        Boolean(options.wrapper) &&
+        instance.parent?.type === options.wrapper &&
+        instance.parent?.parent?.type === RootHarness;
+      if (isDirectTarget || isWrappedTarget) {
+        const originalEmit = instance.emit;
+        instance.emit = (event: string, ...args: unknown[]) => {
+          recordEmit(event, args);
+          return originalEmit(event, ...args);
+        };
+      }
+    },
+  });
+
+  const mounted: InternalMounted = { app, container, ownsContainer };
   mountedRoots.add(mounted);
 
+  const rootVNode = h(RootHarness);
+  rootVNode.appContext = (
+    app as unknown as { _context: VNode['appContext'] }
+  )._context;
+
   const startedAt = getNow();
-  renderNode(wrapUi(toVNode(ui, options), options.wrapper), container);
+  renderNode(rootVNode, container);
   metrics.emitRenderMetric(getComponentName(ui), getNow() - startedAt);
 
   const unmount = () => {
@@ -227,18 +341,49 @@ export function render<TComponent extends Component>(
     unmountMounted(mountedRoots, mounted);
   };
 
+  const isPlainPropsUpdate = (
+    value: unknown
+  ): value is Record<string, unknown> => {
+    if (!value || typeof value !== 'object') return false;
+    if (isVNodeLike(value)) return false;
+    const obj = value as Record<string, unknown>;
+    if (
+      typeof obj.setup === 'function' ||
+      typeof obj.render === 'function' ||
+      typeof obj.template === 'string' ||
+      typeof obj.__name === 'string'
+    ) {
+      return false;
+    }
+    return true;
+  };
+
   const rerender: Rerender = async (
-    nextUi: Component | VNode,
-    nextOptions?: { props?: unknown }
+    nextUiOrProps: Component | VNode | Record<string, unknown>,
+    nextOptions?: { props?: Record<string, unknown> }
   ) => {
-    renderNode(
-      wrapUi(
-        toVNode(nextUi, nextOptions as RenderInputOptions<Component> | undefined),
-        options.wrapper
-      ),
-      container
-    );
+    if (nextOptions !== undefined || !isPlainPropsUpdate(nextUiOrProps)) {
+      currentUiRef.value = nextUiOrProps as VueRenderable;
+      currentPropsRef.value = {
+        ...(options.attrs ?? {}),
+        ...(nextOptions?.props ?? {}),
+      };
+    } else {
+      currentPropsRef.value = {
+        ...currentPropsRef.value,
+        ...nextUiOrProps,
+      };
+    }
     await nextTick();
+  };
+
+  const emitted = <T = unknown[]>(
+    eventName?: string
+  ): T[] | Record<string, T[]> => {
+    if (eventName) {
+      return (emittedEvents[eventName] ?? []) as T[];
+    }
+    return { ...emittedEvents } as Record<string, T[]>;
   };
 
   return {
@@ -247,6 +392,9 @@ export function render<TComponent extends Component>(
     baseElement,
     rerender,
     unmount,
+    emitted,
+    asFragment: createAsFragment(container),
+    debug: createDebug(baseElement),
   };
 }
 
@@ -262,12 +410,13 @@ export type RenderHookResult<Result, Props = unknown> = {
   unmount: () => void;
 };
 
-export const renderHook = <Result, Props = Record<string, unknown>>(
+export const renderHook = <Result, Props = undefined>(
   hook: (props: Props) => Result,
   options: RenderHookOptions<Props> = {}
 ): RenderHookResult<Result, Props> => {
+  const { h, nextTick, shallowRef } = getVueRuntime();
   let currentResult!: Result;
-  let currentProps = options.initialProps ?? ({} as Props);
+  let currentProps = (options.initialProps ?? {}) as Props;
   const hookProps = shallowRef(currentProps);
 
   const HookHarness: Component = {
@@ -301,10 +450,10 @@ export const renderHook = <Result, Props = Record<string, unknown>>(
 };
 
 export const cleanup = () => {
-  const scopedMountedRoots = getCurrentScopedMountedRoots();
+  const scopedMountedRoots = registry.getScopedItems();
   if (scopedMountedRoots) cleanupMountedRoots(scopedMountedRoots);
 
-  cleanupMountedRoots(fallbackMountedRoots);
+  cleanupMountedRoots(registry.fallbackItems);
 
   metrics.flushMetricBuffer();
 };
@@ -328,7 +477,7 @@ const wrappedFireEvent: AsyncFireEvent = (async (
 ) => {
   const result = baseFireEventInstance(...args);
   await Promise.resolve();
-  await nextTick();
+  await getVueRuntime().nextTick();
   return result;
 }) as AsyncFireEvent;
 
@@ -338,11 +487,12 @@ wrapFireEventMethods(
   async (invoke) => {
     const result = invoke();
     await Promise.resolve();
-    await nextTick();
+    await getVueRuntime().nextTick();
     return result;
   }
 );
 
 export const fireEvent = wrappedFireEvent;
+export const waitFor = createWaitFor(domTestingLibrary.waitFor);
 
 export * from '@testing-library/dom';

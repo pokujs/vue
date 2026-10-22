@@ -1,3 +1,4 @@
+import type { FrameworkDescriptor } from '@pokujs/dom';
 import type {
   VueDomAdapter,
   VueMetricsOptions,
@@ -7,10 +8,7 @@ import type {
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { env } from 'node:process';
-import {
-  createFrameworkTestingPluginFactory,
-  type FrameworkDescriptor,
-} from '@pokujs/dom';
+import { createFrameworkTestingPluginFactory } from '@pokujs/dom';
 import { definePlugin } from 'poku/plugins';
 import {
   buildRunnerCommand,
@@ -44,9 +42,9 @@ const buildExcludePatterns = (
   exclude: RegExp | string | Array<RegExp | string> | undefined
 ): RegExp[] => {
   if (!exclude) return [];
-  return [exclude].flat().map((p) =>
-    p instanceof RegExp ? p : new RegExp(escapeRegExp(p), 'i')
-  );
+  return [exclude]
+    .flat()
+    .map((p) => (p instanceof RegExp ? p : new RegExp(escapeRegExp(p), 'i')));
 };
 
 const collectTestFiles = async (
@@ -89,7 +87,7 @@ const descriptor: FrameworkDescriptor = {
   runtimeArgBase: 'poku-vue',
   metricMessageType: 'POKU_VUE_RENDER_METRIC',
   metricBatchMessageType: 'POKU_VUE_RENDER_METRIC_BATCH',
-  testFileExtensions: ['.ts', '.tsx', '.jsx'],
+  testFileExtensions: ['.ts', '.tsx', '.js', '.jsx', '.vue'],
   commandBuilder: (input) => buildRunnerCommand(input),
 };
 
@@ -98,7 +96,9 @@ const { createTestingPlugin } = createFrameworkTestingPluginFactory(
   import.meta.url
 );
 
-export const createVueTestingPlugin = (options: VueTestingPluginOptions = {}) => {
+export const createVueTestingPlugin = (
+  options: VueTestingPluginOptions = {}
+) => {
   const base = createTestingPlugin(options);
 
   return definePlugin({
@@ -106,7 +106,9 @@ export const createVueTestingPlugin = (options: VueTestingPluginOptions = {}) =>
 
     async discoverFiles(paths: string[], context: any): Promise<string[]> {
       const filter: RegExp =
-        (env.FILTER?.trim() ? new RegExp(escapeRegExp(env.FILTER), 'i') : undefined) ??
+        (env.FILTER?.trim()
+          ? new RegExp(escapeRegExp(env.FILTER), 'i')
+          : undefined) ??
         context.configs?.filter ??
         DEFAULT_FILTER;
       const excludePatterns = buildExcludePatterns(context.configs?.exclude);
@@ -114,7 +116,12 @@ export const createVueTestingPlugin = (options: VueTestingPluginOptions = {}) =>
       const files = new Set<string>();
       await Promise.all(
         paths.map((dir) =>
-          collectTestFiles(join(context.cwd, dir), filter, excludePatterns, files)
+          collectTestFiles(
+            join(context.cwd, dir),
+            filter,
+            excludePatterns,
+            files
+          )
         )
       );
 
@@ -124,7 +131,9 @@ export const createVueTestingPlugin = (options: VueTestingPluginOptions = {}) =>
 
       if (!needsGraphTransformation) return Array.from(files).sort();
 
-      return Array.from(files).sort().map((file) => prepareRuntimeTestGraph(file));
+      return Array.from(files)
+        .sort()
+        .map((file) => prepareRuntimeTestGraph(file));
     },
   });
 };

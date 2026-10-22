@@ -1,11 +1,7 @@
 import { afterEach, assert, test } from 'poku';
+import { cleanup, render, screen } from '../src/index.ts';
 import ThemeLabel from './__fixtures__/ThemeLabel.vue';
 import ThemeWrapper from './__fixtures__/ThemeWrapper.vue';
-import {
-  cleanup,
-  render,
-  screen,
-} from '../src/index.ts';
 
 afterEach(cleanup);
 
