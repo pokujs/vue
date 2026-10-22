@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import {
   closeSync,
   fstatSync,
@@ -5,7 +6,7 @@ import {
   futimesSync,
   mkdtempSync,
   openSync,
-  readFileSync,
+  readSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -33,31 +34,30 @@ describe('runtime module cache', () => {
       writeFileSync(entry, 'export const value = "original long value";');
       const output = prepareRuntimeTestGraph(entry);
       const outputFd = openSync(output, 'r+');
+      const readOutput = () => {
+        const content = Buffer.alloc(fstatSync(outputFd).size);
+        readSync(outputFd, content, 0, content.length, 0);
+        return content.toString('utf8');
+      };
       try {
-        const original = readFileSync(output, 'utf8');
+        const original = readOutput();
         const cachedTime = new Date(Date.now() + 60_000);
         futimesSync(outputFd, cachedTime, cachedTime);
         const cachedMtime = fstatSync(outputFd).mtimeMs;
 
         prepareRuntimeTestGraph(entry);
         assert.strictEqual(fstatSync(outputFd).mtimeMs, cachedMtime);
-        assert.strictEqual(readFileSync(output, 'utf8'), original);
+        assert.strictEqual(readOutput(), original);
 
         writeFileSync(entry, 'export const value = 1;');
         const staleTime = new Date(0);
         futimesSync(outputFd, staleTime, staleTime);
         prepareRuntimeTestGraph(entry);
-        assert.strictEqual(
-          readFileSync(output, 'utf8'),
-          'export const value = 1;'
-        );
+        assert.strictEqual(readOutput(), 'export const value = 1;');
 
         ftruncateSync(outputFd, 0);
         prepareRuntimeTestGraph(entry);
-        assert.strictEqual(
-          readFileSync(output, 'utf8'),
-          'export const value = 1;'
-        );
+        assert.strictEqual(readOutput(), 'export const value = 1;');
       } finally {
         closeSync(outputFd);
       }
