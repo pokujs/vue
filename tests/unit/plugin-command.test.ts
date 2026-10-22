@@ -1,11 +1,64 @@
-import { join } from 'node:path';
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
+import { join, relative } from 'node:path';
 import { assert, describe, test } from 'poku';
 import {
   buildRunnerCommand,
   collectLocalImportSpecifiers,
+  prepareRuntimeTestGraph,
   resolveLocalModulePath,
   rewriteVueImportSpecifier,
 } from '../../src/plugin-command.ts';
+
+describe('runtime module cache', () => {
+  test('reuses current modules and truncates stale output before rewriting', () => {
+    const root = mkdtempSync(join(process.cwd(), 'tests/.runtime-cache-'));
+    const entry = join(root, 'entry.ts');
+    const outputRoot = join(
+      process.cwd(),
+      '.pokujs-vue-runtime',
+      relative(process.cwd(), root)
+    );
+
+    try {
+      writeFileSync(entry, 'export const value = "original long value";');
+      const output = prepareRuntimeTestGraph(entry);
+      const original = readFileSync(output, 'utf8');
+      const cachedTime = new Date(Date.now() + 60_000);
+      utimesSync(output, cachedTime, cachedTime);
+      const cachedMtime = statSync(output).mtimeMs;
+
+      prepareRuntimeTestGraph(entry);
+      assert.strictEqual(statSync(output).mtimeMs, cachedMtime);
+      assert.strictEqual(readFileSync(output, 'utf8'), original);
+
+      writeFileSync(entry, 'export const value = 1;');
+      const staleTime = new Date(0);
+      utimesSync(output, staleTime, staleTime);
+      prepareRuntimeTestGraph(entry);
+      assert.strictEqual(
+        readFileSync(output, 'utf8'),
+        'export const value = 1;'
+      );
+
+      writeFileSync(output, '');
+      prepareRuntimeTestGraph(entry);
+      assert.strictEqual(
+        readFileSync(output, 'utf8'),
+        'export const value = 1;'
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(outputRoot, { recursive: true, force: true });
+    }
+  });
+});
 
 describe('rewriteVueImportSpecifier', () => {
   test('replaces single-quoted specifier by appending .js', () => {

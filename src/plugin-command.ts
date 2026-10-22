@@ -3,6 +3,8 @@ import type { VueDomAdapter } from './plugin-types.ts';
 import {
   closeSync,
   existsSync,
+  fstatSync,
+  ftruncateSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -94,6 +96,28 @@ export const rewriteVueImportSpecifier = (
     .replaceAll(`"${specifier}"`, `"${replacement}"`);
 };
 
+const writeRuntimeModule = (
+  outputPath: string,
+  sourcePath: string,
+  getSource: () => string
+) => {
+  mkdirSync(dirname(outputPath), { recursive: true });
+  const outputFd = openSync(outputPath, 'a+');
+
+  try {
+    const output = fstatSync(outputFd);
+    if (output.size > 0 && output.mtimeMs >= statSync(sourcePath).mtimeMs) {
+      return;
+    }
+
+    const source = getSource();
+    ftruncateSync(outputFd, 0);
+    writeFileSync(outputFd, source, 'utf8');
+  } finally {
+    closeSync(outputFd);
+  }
+};
+
 const prepareRuntimeTestGraph = (entryFile: string) => {
   const projectRoot = process.cwd();
   const resolvedEntryFile = resolve(projectRoot, entryFile);
@@ -122,41 +146,19 @@ const prepareRuntimeTestGraph = (entryFile: string) => {
     }
 
     if (moduleExtension === '.vue') {
-      const compiledPath = join(runtimeRoot, `${relativePath}.js`);
-      // Skip recompilation if the output already exists and is newer than the source.
-      if (
-        !existsSync(compiledPath) ||
-        statSync(modulePath).mtimeMs > statSync(compiledPath).mtimeMs
-      ) {
-        mkdirSync(dirname(compiledPath), { recursive: true });
-        const compiledFd = openSync(compiledPath, 'w');
-        try {
-          writeFileSync(
-            compiledFd,
-            compileVueSfcModuleSync(source, modulePath),
-            'utf8'
-          );
-        } finally {
-          closeSync(compiledFd);
-        }
-      }
+      writeRuntimeModule(
+        join(runtimeRoot, `${relativePath}.js`),
+        modulePath,
+        () => compileVueSfcModuleSync(source, modulePath)
+      );
       return;
     }
 
-    const outputPath = join(runtimeRoot, relativePath);
-    // Skip re-writing non-vue modules when the output is already up-to-date.
-    if (
-      !existsSync(outputPath) ||
-      statSync(modulePath).mtimeMs > statSync(outputPath).mtimeMs
-    ) {
-      mkdirSync(dirname(outputPath), { recursive: true });
-      const outputFd = openSync(outputPath, 'w');
-      try {
-        writeFileSync(outputFd, source, 'utf8');
-      } finally {
-        closeSync(outputFd);
-      }
-    }
+    writeRuntimeModule(
+      join(runtimeRoot, relativePath),
+      modulePath,
+      () => source
+    );
   };
 
   emitModule(resolvedEntryFile);
