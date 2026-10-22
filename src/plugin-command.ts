@@ -1,14 +1,21 @@
+import type { BuildRunnerCommandInput } from '@pokujs/dom';
 import type { VueDomAdapter } from './plugin-types.ts';
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, extname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   buildRunnerCommand as buildCoreRunnerCommand,
   canHandleRuntime,
   createDomSetupPathResolver,
-  type BuildRunnerCommandInput,
 } from '@pokujs/dom';
-import { createHash } from 'node:crypto';
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, extname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { compileVueSfcModuleSync } from './vue-sfc-loader.ts';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -22,7 +29,7 @@ const resolveSetupModulePath = (baseName: string) => {
 const happyDomSetupPath = resolveSetupModulePath('dom-setup-happy');
 const jsdomSetupPath = resolveSetupModulePath('dom-setup-jsdom');
 
-const vueExtensions = new Set(['.ts', '.tsx', '.jsx']);
+const vueExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.vue']);
 
 export const resolveDomSetupPath = createDomSetupPathResolver(
   '@pokujs/vue',
@@ -31,7 +38,7 @@ export const resolveDomSetupPath = createDomSetupPathResolver(
 );
 
 const importSpecifierPattern =
-  /\bfrom\s+['"]([^'"]+)['"]|\bimport\s+['"]([^'"]+)['"]/g;
+  /\bfrom\s+['"]([^'"]+)['"]|\bimport\s+['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 
 const moduleResolutionCandidates = [
   '',
@@ -54,7 +61,7 @@ const moduleResolutionCandidates = [
 export const collectLocalImportSpecifiers = (source: string): string[] => {
   const specifiers: string[] = [];
   for (const match of source.matchAll(importSpecifierPattern)) {
-    const specifier = match[1] ?? match[2];
+    const specifier = match[1] ?? match[2] ?? match[3];
     if (specifier && specifier.startsWith('.')) specifiers.push(specifier);
   }
   return specifiers;
@@ -65,31 +72,33 @@ export const resolveLocalModulePath = (fromFile: string, specifier: string) => {
 
   for (const suffix of moduleResolutionCandidates) {
     const candidate = `${basePath}${suffix}`;
-    if (existsSync(candidate)) return candidate;
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
   }
 
   return null;
 };
 
-export const rewriteVueImportSpecifier = (source: string, specifier: string) => {
+export const rewriteVueImportSpecifier = (
+  source: string,
+  specifier: string,
+  resolvedPath?: string
+) => {
+  const replacement = specifier.endsWith('.vue')
+    ? `${specifier}.js`
+    : resolvedPath?.endsWith('/index.vue')
+      ? `${specifier.replace(/\/$/, '')}/index.vue.js`
+      : `${specifier}.vue.js`;
+
   return source
-    .replaceAll(`'${specifier}'`, `'${specifier}.js'`)
-    .replaceAll(`"${specifier}"`, `"${specifier}.js"`);
+    .replaceAll(`'${specifier}'`, `'${replacement}'`)
+    .replaceAll(`"${specifier}"`, `"${replacement}"`);
 };
 
 const prepareRuntimeTestGraph = (entryFile: string) => {
   const projectRoot = process.cwd();
   const resolvedEntryFile = resolve(projectRoot, entryFile);
   const relativeEntryFile = relative(projectRoot, resolvedEntryFile);
-  const entryHash = createHash('sha1')
-    .update(relativeEntryFile)
-    .digest('hex')
-    .slice(0, 12);
-  const runtimeRoot = join(
-    projectRoot,
-    '.pokujs-vue-runtime',
-    entryHash
-  );
+  const runtimeRoot = join(projectRoot, '.pokujs-vue-runtime');
   const seen = new Set<string>();
 
   const emitModule = (modulePath: string) => {
@@ -107,19 +116,26 @@ const prepareRuntimeTestGraph = (entryFile: string) => {
 
       emitModule(resolvedPath);
 
-      if (specifier.endsWith('.vue')) {
-        source = rewriteVueImportSpecifier(source, specifier);
+      if (resolvedPath.endsWith('.vue')) {
+        source = rewriteVueImportSpecifier(source, specifier, resolvedPath);
       }
     }
 
     if (moduleExtension === '.vue') {
       const compiledPath = join(runtimeRoot, `${relativePath}.js`);
       // Skip recompilation if the output already exists and is newer than the source.
-      if (!existsSync(compiledPath) || statSync(modulePath).mtimeMs > statSync(compiledPath).mtimeMs) {
+      if (
+        !existsSync(compiledPath) ||
+        statSync(modulePath).mtimeMs > statSync(compiledPath).mtimeMs
+      ) {
         mkdirSync(dirname(compiledPath), { recursive: true });
         const compiledFd = openSync(compiledPath, 'w');
         try {
-          writeFileSync(compiledFd, compileVueSfcModuleSync(source, modulePath), 'utf8');
+          writeFileSync(
+            compiledFd,
+            compileVueSfcModuleSync(source, modulePath),
+            'utf8'
+          );
         } finally {
           closeSync(compiledFd);
         }
@@ -129,7 +145,10 @@ const prepareRuntimeTestGraph = (entryFile: string) => {
 
     const outputPath = join(runtimeRoot, relativePath);
     // Skip re-writing non-vue modules when the output is already up-to-date.
-    if (!existsSync(outputPath) || statSync(modulePath).mtimeMs > statSync(outputPath).mtimeMs) {
+    if (
+      !existsSync(outputPath) ||
+      statSync(modulePath).mtimeMs > statSync(outputPath).mtimeMs
+    ) {
       mkdirSync(dirname(outputPath), { recursive: true });
       const outputFd = openSync(outputPath, 'w');
       try {
@@ -149,9 +168,10 @@ export const buildRunnerCommand = (
   input: Omit<BuildRunnerCommandInput, 'extensions'>
 ) => {
   const runtime = input.runtime;
-  const runtimeFile = runtime === 'bun' || runtime === 'deno'
-    ? prepareRuntimeTestGraph(input.file)
-    : input.file;
+  const runtimeFile =
+    runtime === 'bun' || runtime === 'deno'
+      ? prepareRuntimeTestGraph(input.file)
+      : input.file;
   const runtimeCommand = input.command.map((item) =>
     item === input.file ? runtimeFile : item
   );

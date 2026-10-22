@@ -1,6 +1,6 @@
-import { afterEach, assert, test } from 'poku';
 import { cleanup, render, screen } from '@pokujs/vue';
-import { GreetingCard, createUnmountWatcher } from '../shared/scenarios.js';
+import { afterEach, assert, test } from 'poku';
+import { createUnmountWatcher, GreetingCard } from '../shared/scenarios.js';
 
 afterEach(cleanup);
 
@@ -25,9 +25,11 @@ await test('rerender updates component props in place', async () => {
 await test('unmount runs effect cleanup logic', async () => {
   let cleaned = false;
 
-  const view = render(createUnmountWatcher(() => {
-    cleaned = true;
-  }));
+  const view = render(
+    createUnmountWatcher(() => {
+      cleaned = true;
+    })
+  );
   assert.strictEqual(cleaned, false);
 
   view.unmount();

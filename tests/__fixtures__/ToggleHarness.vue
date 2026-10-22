@@ -11,7 +11,9 @@ const toggle = () => {
 
 <template>
   <div>
-    <output aria-label="toggle-state">{{ enabled ? 'enabled' : 'disabled' }}</output>
+    <output aria-label="toggle-state">{{
+      enabled ? 'enabled' : 'disabled'
+    }}</output>
     <button type="button" @click="toggle">Toggle</button>
   </div>
 </template>

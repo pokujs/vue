@@ -1,5 +1,5 @@
-import { afterEach, assert, test } from 'poku';
 import { cleanup, render, screen } from '@pokujs/vue';
+import { afterEach, assert, test } from 'poku';
 import { ThemeLabel, ThemeWrapper } from '../shared/scenarios.js';
 
 afterEach(cleanup);

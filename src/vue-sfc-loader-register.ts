@@ -21,6 +21,15 @@ const loaderGlobal = globalThis as LoaderRegistrationGlobal;
 export const registerVueSfcLoader = () => {
   if (loaderGlobal[registrationKey]) return;
 
+  const runtimeGlobal = globalThis as Record<string, unknown>;
+  if (
+    typeof runtimeGlobal.Bun !== 'undefined' ||
+    typeof runtimeGlobal.Deno !== 'undefined'
+  ) {
+    loaderGlobal[registrationKey] = true;
+    return;
+  }
+
   register(pathToFileURL(hooksModulePath).href, import.meta.url);
   loaderGlobal[registrationKey] = true;
 };

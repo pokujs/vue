@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/vue';
-import { GreetingCard, createUnmountWatcher } from '../shared/scenarios.js';
 import { afterEach, expect, test } from 'vitest';
+import { createUnmountWatcher, GreetingCard } from '../shared/scenarios.js';
 
 afterEach(cleanup);
 
@@ -21,9 +21,11 @@ test('rerender updates component props in place', async () => {
 test('unmount runs effect cleanup logic', () => {
   let cleaned = false;
 
-  const view = render(createUnmountWatcher(() => {
-    cleaned = true;
-  }));
+  const view = render(
+    createUnmountWatcher(() => {
+      cleaned = true;
+    })
+  );
   expect(cleaned).toBe(false);
 
   view.unmount();

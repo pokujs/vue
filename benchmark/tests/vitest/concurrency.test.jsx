@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/vue';
-import { AsyncPipeline } from '../shared/scenarios.js';
 import { afterEach, expect, test } from 'vitest';
+import { AsyncPipeline } from '../shared/scenarios.js';
 
 afterEach(cleanup);
 

@@ -1,6 +1,7 @@
-import { assert, describe, test } from 'poku';
 import { join } from 'node:path';
+import { assert, describe, test } from 'poku';
 import {
+  buildRunnerCommand,
   collectLocalImportSpecifiers,
   resolveLocalModulePath,
   rewriteVueImportSpecifier,
@@ -33,10 +34,7 @@ describe('rewriteVueImportSpecifier', () => {
 
   test('does not alter specifiers that do not match', () => {
     const source = `import Foo from './Other.vue'`;
-    assert.strictEqual(
-      rewriteVueImportSpecifier(source, './Foo.vue'),
-      source
-    );
+    assert.strictEqual(rewriteVueImportSpecifier(source, './Foo.vue'), source);
   });
 
   test('does not alter non-import text that partially matches', () => {
@@ -121,5 +119,25 @@ describe('resolveLocalModulePath', () => {
   test('returns null for a specifier that does not resolve to any file', () => {
     const result = resolveLocalModulePath(fakeFromFile, './DoesNotExist');
     assert.strictEqual(result, null);
+  });
+});
+
+describe('buildRunnerCommand', () => {
+  test('rewrites Bun test entry into .pokujs-vue-runtime and injects --preload=', () => {
+    const file = 'tests/vue-sfc-component.test.ts';
+    const result = buildRunnerCommand({
+      runtime: 'bun',
+      command: ['bun', file],
+      file,
+      domSetupPath: '/tmp/dom-setup.ts',
+      runtimeOptionArgs: [],
+    });
+
+    assert.strictEqual(result.shouldHandle, true);
+    const preloadFlag = result.command.find((arg) =>
+      arg.startsWith('--preload=')
+    );
+    assert.strictEqual(preloadFlag, '--preload=/tmp/dom-setup.ts');
+    assert.ok(result.command[2]?.includes('.pokujs-vue-runtime'));
   });
 });

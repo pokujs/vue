@@ -1,11 +1,6 @@
 import { afterEach, assert, test } from 'poku';
+import { cleanup, fireEvent, render, screen } from '../src/index.ts';
 import AsyncPipeline from './__fixtures__/AsyncPipeline.vue';
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from '../src/index.ts';
 
 afterEach(cleanup);
 
