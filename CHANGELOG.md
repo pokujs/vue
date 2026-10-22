@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/pokujs/vue/compare/vue-v1.1.0...vue-v1.1.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* stabilize scoped Vue rendering and SFC loading ([#9](https://github.com/pokujs/vue/issues/9)) ([f3c28c4](https://github.com/pokujs/vue/commit/f3c28c4408eb5f8b16416457af4d0a4b6d37b9be))
+
 ## [1.1.0](https://github.com/pokujs/vue/compare/vue-v1.0.1...vue-v1.1.0) (2026-04-20)
 
 ### Features
